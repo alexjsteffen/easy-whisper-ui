@@ -2,7 +2,10 @@
 #include <QPalette>
 #include <QMimeData>
 #include <QUrl>
+#include <QtGlobal>
+#ifdef Q_OS_WIN
 #include <Windows.h>
+#endif
 #include "ui_mainwindow.h"
 
 WindowHelper::WindowHelper(QWidget *window, Ui::EasyWhisperUI *ui, QObject *parent)
@@ -12,6 +15,7 @@ WindowHelper::WindowHelper(QWidget *window, Ui::EasyWhisperUI *ui, QObject *pare
 
 void WindowHelper::handleBlur()
 {
+#ifdef Q_OS_WIN
     window->setAttribute(Qt::WA_TranslucentBackground);
     ui->centralwidget->setAttribute(Qt::WA_TranslucentBackground);
 
@@ -98,6 +102,10 @@ void WindowHelper::handleBlur()
     if (setWindowCompositionAttribute) {
         setWindowCompositionAttribute(hwnd, &data);
     }
+#else
+    Q_UNUSED(window);
+    Q_UNUSED(ui);
+#endif
 }
 
 void WindowHelper::handlePaletteChange(QEvent *event)

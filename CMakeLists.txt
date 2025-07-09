@@ -17,8 +17,10 @@ set(PROJECT_SOURCES
         mainwindow.cpp
         mainwindow.h
         mainwindow.ui
-        icon.rc
 )
+if(WIN32)
+    list(APPEND PROJECT_SOURCES icon.rc)
+endif()
 
 if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
     qt_add_executable(EasyWhisperUI
@@ -44,47 +46,30 @@ else()
     else()
         add_executable(EasyWhisperUI
             ${PROJECT_SOURCES}
+            resources.qrc
+            settings.h settings.cpp
+            windowhelper.h windowhelper.cpp
+            filequeue.h filequeue.cpp
+            transcriptionpipeline.h transcriptionpipeline.cpp
         )
     endif()
 endif()
 
 target_link_libraries(EasyWhisperUI PRIVATE Qt${QT_VERSION_MAJOR}::Widgets)
 
-find_program(WINDEPLOYQT_EXECUTABLE windeployqt REQUIRED)
-
-add_custom_command(TARGET EasyWhisperUI POST_BUILD
-    # Make output folder
-    COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_SOURCE_DIR}/build/Final"
-
-    # Copy the built .exe to Final/
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "$<TARGET_FILE:EasyWhisperUI>"
-            "${CMAKE_SOURCE_DIR}/build/Final/EasyWhisperUI.exe"
-
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "${CMAKE_SOURCE_DIR}/build.bat"
-        "${CMAKE_SOURCE_DIR}/build/Final/build.bat"
-
-    # Run windeployqt on the copied .exe
-    COMMAND ${WINDEPLOYQT_EXECUTABLE}
-                --no-opengl-sw                # Don't include software OpenGL fallback
-                --no-opengl                   # Skip OpenGL entirely
-                --no-quick                    # No QML/Quick files
-                --no-translations             # No i18n
-                --no-system-d3d-compiler      # Skip optional D3D compiler dependency
-                --no-svg                      # Skip SVG module
-                --no-network                  # Skip network dlls
-            "${CMAKE_SOURCE_DIR}/build/Final/EasyWhisperUI.exe"
-
-    # Delete unnecessary files
-    COMMAND ${CMAKE_COMMAND} -E remove_directory "${CMAKE_SOURCE_DIR}/build/Final/imageformats"
-    COMMAND ${CMAKE_COMMAND} -E rm -f "${CMAKE_SOURCE_DIR}/build/Final/dxcompiler.dll"
-
-    # Compile the installer with Inno Setup
-    COMMENT "Compiling Installer"
-    COMMAND "C:/Program Files (x86)/Inno Setup 6/ISCC.exe" "${CMAKE_SOURCE_DIR}/setup.iss"
-)
-
+# Windows deployment only
+if(WIN32)
+    find_program(WINDEPLOYQT_EXECUTABLE windeployqt REQUIRED)
+    add_custom_command(TARGET EasyWhisperUI POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_SOURCE_DIR}/build/Final"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_SOURCE_DIR}/build.bat" "${CMAKE_SOURCE_DIR}/build/Final/build.bat"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:EasyWhisperUI>" "${CMAKE_SOURCE_DIR}/build/Final/EasyWhisperUI.exe"
+        COMMAND ${WINDEPLOYQT_EXECUTABLE} --no-opengl-sw --no-opengl --no-quick --no-translations --no-system-d3d-compiler --no-svg --no-network "${CMAKE_SOURCE_DIR}/build/Final/EasyWhisperUI.exe"
+        COMMAND ${CMAKE_COMMAND} -E remove_directory "${CMAKE_SOURCE_DIR}/build/Final/imageformats"
+        COMMAND ${CMAKE_COMMAND} -E rm -f "${CMAKE_SOURCE_DIR}/build/Final/dxcompiler.dll"
+        COMMENT "Windows post-build deployment"
+    )
+endif()
 
 # Qt for iOS sets MACOSX_BUNDLE_GUI_IDENTIFIER automatically since Qt 6.1.
 # If you are developing for iOS or macOS you should consider setting an
@@ -92,13 +77,19 @@ add_custom_command(TARGET EasyWhisperUI POST_BUILD
 if(${QT_VERSION} VERSION_LESS 6.1.0)
   set(BUNDLE_ID_OPTION MACOSX_BUNDLE_GUI_IDENTIFIER com.example.EasyWhisperUI)
 endif()
-set_target_properties(EasyWhisperUI PROPERTIES
-    ${BUNDLE_ID_OPTION}
-    MACOSX_BUNDLE_BUNDLE_VERSION ${PROJECT_VERSION}
-    MACOSX_BUNDLE_SHORT_VERSION_STRING ${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}
-    MACOSX_BUNDLE TRUE
-    WIN32_EXECUTABLE TRUE
-)
+# Platform-specific bundle/executable properties
+if(APPLE)
+    set_target_properties(EasyWhisperUI PROPERTIES
+        ${BUNDLE_ID_OPTION}
+        MACOSX_BUNDLE_BUNDLE_VERSION ${PROJECT_VERSION}
+        MACOSX_BUNDLE_SHORT_VERSION_STRING ${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}
+        MACOSX_BUNDLE TRUE
+    )
+elseif(WIN32)
+    set_target_properties(EasyWhisperUI PROPERTIES
+        WIN32_EXECUTABLE TRUE
+    )
+endif()
 
 include(GNUInstallDirs)
 install(TARGETS EasyWhisperUI
